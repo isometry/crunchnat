@@ -2,21 +2,37 @@ import ipaddr
 
 _PORTS_PER_IP=65536
 _RESERVED_PORTS=1024
+_USABLE_PORTS=_PORTS_PER_IP - _RESERVED_PORTS
 _MAX_CRUNCH_FACTOR=8
 
-class CrunchError(Exception):
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return 'Excessive Crunch Factor: {}'.format(repr(self.value))
+_PUBLIC_KEY=64373
+_DEFAULT_PRIVATE_KEY=130969
+
+def egcd(a, b):
+    if a == 0:
+        return (b, 0, 1)
+    else:
+        g, y, x = egcd(b % a, a)
+        return (g, x - (b // a) * y, y)
+
+def modinv(a, m):
+    g, x, y = egcd(a, m)
+    if g != 1:
+        raise Exception('modular inverse does not exist')
+    else:
+        return x % m
 
 class CrunchNAT(object):
-    def __init__(self, external_network, internal_network):
+    def __init__(self, external_network, internal_network, private_key=_DEFAULT_PRIVATE_KEY):
         self.external_network = ipaddr.IPv4Network(external_network)
         self.internal_network = ipaddr.IPv4Network(internal_network)
         self.crunch_factor    = self.external_network.prefixlen - self.internal_network.prefixlen
         if self.crunch_factor > _MAX_CRUNCH_FACTOR:
-            raise CrunchError(self.crunch_factor)
+            raise Exception('Excessive Crunch Factor: {}'.format(self.crunch_factor))
+        if (private_key <= _PUBLIC_KEY):
+            raise Exception('Bad key: {}'.format(private_key))
+        self.prime_key        = _PUBLIC_KEY * private_key
+        self.prime_inv        = modinv(self.prime_key, _USABLE_PORTS)
 
     @property
     def naive_ports_per_host(self):
@@ -52,7 +68,7 @@ class CrunchNAT(object):
     @property
     def ports_per_host(self):
         """ Number of external ports per internal host """
-        return int((_PORTS_PER_IP - _RESERVED_PORTS) / self.hosts_per_external)
+        return int(_USABLE_PORTS / self.hosts_per_external)
 
     def forward(self, _internal_address, stripe=False):
         internal_address = ipaddr.IPv4Address(_internal_address)
@@ -74,5 +90,23 @@ class CrunchNAT(object):
             internal_offset2 = (_port - _RESERVED_PORTS) % self.hosts_per_external
         else:
             internal_offset2 = (_port - _RESERVED_PORTS) / self.ports_per_host
+        internal_address = ipaddr.IPv4Address(int(self.internal_network) + internal_offset1 + internal_offset2)
+        return internal_address
+
+    def prime_forward(self, _internal_address):
+        internal_address = ipaddr.IPv4Address(_internal_address)
+        internal_offset  = int(internal_address) - int(self.internal_network)
+        external_offset  = 1 + int(internal_offset / self.hosts_per_external)
+        external_address = ipaddr.IPv4Address(int(self.external_network) + external_offset)
+        modp = lambda x: _RESERVED_PORTS + ((x * self.prime_key) % _USABLE_PORTS)
+        port_offset = internal_offset * self.ports_per_host
+        port_range = sorted(map(modp, range(port_offset, port_offset + self.ports_per_host)))
+        return (external_address, port_range)
+
+    def prime_reverse(self, _external_address, _port):
+        external_address = ipaddr.IPv4Address(_external_address)
+        external_offset  = int(external_address) - int(self.external_network)
+        internal_offset1 = (external_offset - 1) * self.hosts_per_external
+        internal_offset2 = ((_port - _RESERVED_PORTS) * self.prime_inv % _USABLE_PORTS) / self.ports_per_host
         internal_address = ipaddr.IPv4Address(int(self.internal_network) + internal_offset1 + internal_offset2)
         return internal_address

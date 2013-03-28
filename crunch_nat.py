@@ -1,3 +1,4 @@
+from __future__ import division
 from __future__ import print_function
 import netaddr
 
@@ -66,25 +67,25 @@ class CrunchNAT(object):
         external_address = netaddr.IPAddress(_external_address)
         external_offset  = int(external_address) - int(self.external_network.value)
         internal_offset1 = external_offset << self.crunch_factor
-        internal_offset2 = int(_port / self.naive_ports_per_host)
+        internal_offset2 = _port // self.naive_ports_per_host
         internal_address = netaddr.IPAddress(int(self.internal_network.value) + internal_offset1 + internal_offset2)
         return internal_address
 
     @property
     def hosts_per_external(self):
         """ Number of internal hosts per external IP """
-        return int(self.internal_network.size / self.external_hosts) + 1
+        return (self.internal_network.size // self.external_hosts) + 1
 
     @property
     def ports_per_host(self):
         """ Number of external ports per internal host """
-        return int(self.num_ports / self.hosts_per_external)
+        return (self.num_ports // self.hosts_per_external)
 
     def simple_forward(self, _internal_address):
         """ Forward map internal address to external (address, portrange), with no obfuscation algorithm """
         internal_address = netaddr.IPAddress(_internal_address)
         internal_offset  = int(internal_address) - int(self.internal_network.value)
-        external_offset  = 1 + int(internal_offset / self.hosts_per_external)
+        external_offset  = 1 + (internal_offset // self.hosts_per_external)
         external_address = netaddr.IPAddress(int(self.external_network.value) + external_offset)
         lo_port = _RESERVED_PORTS + self.ports_per_host * (internal_offset % self.hosts_per_external)
         hi_port = lo_port + self.ports_per_host
@@ -95,7 +96,7 @@ class CrunchNAT(object):
         external_address = netaddr.IPAddress(_external_address)
         external_offset  = int(external_address) - int(self.external_network.value)
         internal_offset1 = (external_offset - 1) * self.hosts_per_external
-        internal_offset2 = int((_port - _RESERVED_PORTS) / self.ports_per_host)
+        internal_offset2 = ((_port - _RESERVED_PORTS) // self.ports_per_host)
         internal_address = netaddr.IPAddress(int(self.internal_network.value) + internal_offset1 + internal_offset2)
         return internal_address
 
@@ -103,7 +104,7 @@ class CrunchNAT(object):
         """ Forward map internal address to external (address, portrange), obfuscating portrange with fixed-width striping algorithm """
         internal_address = netaddr.IPAddress(_internal_address)
         internal_offset  = int(internal_address) - int(self.internal_network.value)
-        external_offset  = 1 + int(internal_offset / self.hosts_per_external)
+        external_offset  = 1 + (internal_offset // self.hosts_per_external)
         external_address = netaddr.IPAddress(int(self.external_network.value) + external_offset)
         port_range  = range(_RESERVED_PORTS + (internal_offset % self.hosts_per_external), _PORTS_PER_IP, self.hosts_per_external)[:self.ports_per_host]
         return (external_address, port_range)
@@ -121,7 +122,7 @@ class CrunchNAT(object):
         """ Forward map internal address to external (address, portrange), obfuscating portrange with RSA-based algorithm """
         internal_address = netaddr.IPAddress(_internal_address)
         internal_offset  = int(internal_address) - int(self.internal_network.value)
-        external_offset  = 1 + int(internal_offset / self.hosts_per_external)
+        external_offset  = 1 + (internal_offset // self.hosts_per_external)
         external_address = netaddr.IPAddress(int(self.external_network.value) + external_offset)
         port_offset      = internal_offset % self.hosts_per_external
         fn = lambda x: _RESERVED_PORTS + self.encrypt(x)
@@ -133,7 +134,7 @@ class CrunchNAT(object):
         external_address = netaddr.IPAddress(_external_address)
         external_offset  = int(external_address) - int(self.external_network.value)
         internal_offset1 = (external_offset - 1) * self.hosts_per_external
-        internal_offset2 = int(self.decrypt(_port - _RESERVED_PORTS) / self.ports_per_host)
+        internal_offset2 = self.decrypt(_port - _RESERVED_PORTS) // self.ports_per_host
         internal_address = netaddr.IPAddress(int(self.internal_network.value) + internal_offset1 + internal_offset2)
         return internal_address
 

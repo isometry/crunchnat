@@ -41,7 +41,7 @@ class CrunchNAT(object):
 
         if algo == 'secure':
             if p * q > _USABLE_PORTS:
-                raise Exception('')
+                raise Exception('Invalid keys: p*q > _USABLE_PORTS')
             (self.encrypt, self.decrypt) = gen_rsa_methods(p, q, e)
             self.num_ports = p * q
         else:

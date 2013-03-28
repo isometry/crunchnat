@@ -1,4 +1,5 @@
-import ipaddr
+from __future__ import print_function
+import netaddr
 
 _DEFAULT_ALGO = 'secure'
 _MAX_CRUNCH_FACTOR = 8
@@ -22,17 +23,17 @@ class CrunchNAT(object):
     """
     
     def __init__(self, external_network, internal_network, algo='secure', p=_DEFAULT_P, q=_DEFAULT_Q, e=_DEFAULT_E):
-        self.external_network = ipaddr.IPv4Network(external_network)
-        self.internal_network = ipaddr.IPv4Network(internal_network)
+        self.external_network = netaddr.IPNetwork(external_network)
+        self.internal_network = netaddr.IPNetwork(internal_network)
         self.crunch_factor    = self.external_network.prefixlen - self.internal_network.prefixlen
 
         if self.crunch_factor > _MAX_CRUNCH_FACTOR:
             raise Exception('Excessive Crunch Factor: {}'.format(self.crunch_factor))
 
         if self.external_network.prefixlen < 31:
-            self.external_hosts = self.external_network.numhosts - 2
+            self.external_hosts = self.external_network.size - 2
         else:
-            self.external_hosts = self.external_network.numhosts
+            self.external_hosts = self.external_network.size
 
         self.algo      = algo
         self.forward   = getattr(self, '{}_forward'.format(algo))
@@ -52,27 +53,27 @@ class CrunchNAT(object):
 
     def naive_forward(self, _internal_address):
         """ Naively forward map internal address to external (address, portrange) """
-        internal_address = ipaddr.IPv4Address(_internal_address)
-        internal_offset  = int(internal_address) - int(self.internal_network)
+        internal_address = netaddr.IPAddress(_internal_address)
+        internal_offset  = int(internal_address) - int(self.internal_network.value)
         external_offset  = internal_offset >> self.crunch_factor
-        external_address = ipaddr.IPv4Address(int(self.external_network) + external_offset)
+        external_address = netaddr.IPAddress(int(self.external_network.value) + external_offset)
         lo_port          = self.naive_ports_per_host * (internal_offset % 2**self.crunch_factor)
         hi_port          = lo_port + self.naive_ports_per_host
         return (external_address, range(lo_port, hi_port))
 
     def naive_reverse(self, _external_address, _port):
         """ Naively reverse map external (address, port) to internal address """
-        external_address = ipaddr.IPv4Address(_external_address)
-        external_offset  = int(external_address) - int(self.external_network)
+        external_address = netaddr.IPAddress(_external_address)
+        external_offset  = int(external_address) - int(self.external_network.value)
         internal_offset1 = external_offset << self.crunch_factor
         internal_offset2 = int(_port / self.naive_ports_per_host)
-        internal_address = ipaddr.IPv4Address(int(self.internal_network) + internal_offset1 + internal_offset2)
+        internal_address = netaddr.IPAddress(int(self.internal_network.value) + internal_offset1 + internal_offset2)
         return internal_address
 
     @property
     def hosts_per_external(self):
         """ Number of internal hosts per external IP """
-        return int(self.internal_network.numhosts / self.external_hosts) + 1
+        return int(self.internal_network.size / self.external_hosts) + 1
 
     @property
     def ports_per_host(self):
@@ -81,47 +82,47 @@ class CrunchNAT(object):
 
     def simple_forward(self, _internal_address):
         """ Forward map internal address to external (address, portrange), with no obfuscation algorithm """
-        internal_address = ipaddr.IPv4Address(_internal_address)
-        internal_offset  = int(internal_address) - int(self.internal_network)
+        internal_address = netaddr.IPAddress(_internal_address)
+        internal_offset  = int(internal_address) - int(self.internal_network.value)
         external_offset  = 1 + int(internal_offset / self.hosts_per_external)
-        external_address = ipaddr.IPv4Address(int(self.external_network) + external_offset)
+        external_address = netaddr.IPAddress(int(self.external_network.value) + external_offset)
         lo_port = _RESERVED_PORTS + self.ports_per_host * (internal_offset % self.hosts_per_external)
         hi_port = lo_port + self.ports_per_host
         return (external_address, range(lo_port, hi_port))
 
     def simple_reverse(self, _external_address, _port):
         """ Reverse map external (address, port) to internal address, the port having not been obfuscated """
-        external_address = ipaddr.IPv4Address(_external_address)
-        external_offset  = int(external_address) - int(self.external_network)
+        external_address = netaddr.IPAddress(_external_address)
+        external_offset  = int(external_address) - int(self.external_network.value)
         internal_offset1 = (external_offset - 1) * self.hosts_per_external
-        internal_offset2 = (_port - _RESERVED_PORTS) / self.ports_per_host
-        internal_address = ipaddr.IPv4Address(int(self.internal_network) + internal_offset1 + internal_offset2)
+        internal_offset2 = int((_port - _RESERVED_PORTS) / self.ports_per_host)
+        internal_address = netaddr.IPAddress(int(self.internal_network.value) + internal_offset1 + internal_offset2)
         return internal_address
 
     def stripe_forward(self, _internal_address):
         """ Forward map internal address to external (address, portrange), obfuscating portrange with fixed-width striping algorithm """
-        internal_address = ipaddr.IPv4Address(_internal_address)
-        internal_offset  = int(internal_address) - int(self.internal_network)
+        internal_address = netaddr.IPAddress(_internal_address)
+        internal_offset  = int(internal_address) - int(self.internal_network.value)
         external_offset  = 1 + int(internal_offset / self.hosts_per_external)
-        external_address = ipaddr.IPv4Address(int(self.external_network) + external_offset)
+        external_address = netaddr.IPAddress(int(self.external_network.value) + external_offset)
         port_range  = range(_RESERVED_PORTS + (internal_offset % self.hosts_per_external), _PORTS_PER_IP, self.hosts_per_external)[:self.ports_per_host]
         return (external_address, port_range)
 
     def stripe_reverse(self, _external_address, _port):
         """ Reverse map external (address, port) to internal address, the port having been obfuscated with fixed-width striping algorithm """
-        external_address = ipaddr.IPv4Address(_external_address)
-        external_offset  = int(external_address) - int(self.external_network)
+        external_address = netaddr.IPAddress(_external_address)
+        external_offset  = int(external_address) - int(self.external_network.value)
         internal_offset1 = (external_offset - 1) * self.hosts_per_external
         internal_offset2 = (_port - _RESERVED_PORTS) % self.hosts_per_external
-        internal_address = ipaddr.IPv4Address(int(self.internal_network) + internal_offset1 + internal_offset2)
+        internal_address = netaddr.IPAddress(int(self.internal_network.value) + internal_offset1 + internal_offset2)
         return internal_address
 
     def secure_forward(self, _internal_address):
         """ Forward map internal address to external (address, portrange), obfuscating portrange with RSA-based algorithm """
-        internal_address = ipaddr.IPv4Address(_internal_address)
-        internal_offset  = int(internal_address) - int(self.internal_network)
+        internal_address = netaddr.IPAddress(_internal_address)
+        internal_offset  = int(internal_address) - int(self.internal_network.value)
         external_offset  = 1 + int(internal_offset / self.hosts_per_external)
-        external_address = ipaddr.IPv4Address(int(self.external_network) + external_offset)
+        external_address = netaddr.IPAddress(int(self.external_network.value) + external_offset)
         port_offset      = internal_offset % self.hosts_per_external
         fn = lambda x: _RESERVED_PORTS + self.encrypt(x)
         port_range = sorted(map(fn, range(port_offset * self.ports_per_host, (port_offset + 1) * self.ports_per_host)))
@@ -129,11 +130,11 @@ class CrunchNAT(object):
 
     def secure_reverse(self, _external_address, _port):
         """ Reverse map external (address, port) to internal address, the port having been obfuscated with RSA-based algorithm """
-        external_address = ipaddr.IPv4Address(_external_address)
-        external_offset  = int(external_address) - int(self.external_network)
+        external_address = netaddr.IPAddress(_external_address)
+        external_offset  = int(external_address) - int(self.external_network.value)
         internal_offset1 = (external_offset - 1) * self.hosts_per_external
-        internal_offset2 = self.decrypt(_port - _RESERVED_PORTS) / self.ports_per_host
-        internal_address = ipaddr.IPv4Address(int(self.internal_network) + internal_offset1 + internal_offset2)
+        internal_offset2 = int(self.decrypt(_port - _RESERVED_PORTS) / self.ports_per_host)
+        internal_address = netaddr.IPAddress(int(self.internal_network.value) + internal_offset1 + internal_offset2)
         return internal_address
 
     # Various helper functions to check that mappings are sane
@@ -143,14 +144,14 @@ class CrunchNAT(object):
         collisions = []
         z = set()
         for x in range(0, self.hosts_per_external):
-            i = ipaddr.IPv4Address(int(self.internal_network) + x)
+            i = netaddr.IPAddress(int(self.internal_network.value) + x)
             (e, p) = self.forward(i)
             if len(p) != self.ports_per_host:
-                print 'Port range for {} is wrong size: {}'.format(i, len(p))
+                print('Port range for {} is wrong size: {}'.format(i, len(p)))
             if z.intersection(p):
                 collisions.append(str(i))
             z.update(p)
-        print '{} collisions {}'.format(len(collisions), ', '.join(collisions))
+        print('{} collisions {}'.format(len(collisions), ', '.join(collisions)))
 
     def check_bijection(self, count=None):
         """ Confirm that the mapping is bijective for the first (count) internal hosts """
@@ -158,8 +159,8 @@ class CrunchNAT(object):
         if not count:
             count = self.hosts_per_external
         for x in range(0, count):
-            i = ipaddr.IPv4Address(int(self.internal_network) + x)
-            (e, p) = self.forward(int(self.internal_network) + x)
+            i = netaddr.IPAddress(int(self.internal_network.value) + x)
+            (e, p) = self.forward(int(self.internal_network.value) + x)
             for q in p:
                 if self.reverse(e, q) != i:
                     bijective = False

@@ -200,3 +200,14 @@ def gen_rsa_methods(p, q, e):
     encrypt = lambda x: pow(x, e, n)
     decrypt = lambda x: pow(x, d, n)
     return (encrypt, decrypt)
+
+if __name__ == '__main__':
+    external = '192.0.2.0/31'
+    internal = '10.0.1.0/24'
+    cnat = CrunchNAT(external, internal)
+    print('External={}, Internal={}'.format(external, internal))
+    print('Hosts per external: {}'.format(cnat.hosts_per_external))
+    print('Ports per host: {}'.format(cnat.ports_per_host))
+    host = '192.0.2.1'
+    port = 51264
+    print('{}:{} => {}'.format(host, port, cnat.reverse(host, port)))

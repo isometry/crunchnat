@@ -1,10 +1,28 @@
 # CrunchNAT
 
-Proof-of-concept algorithms for bijective mapping of internal addresses to
-external (address, port list) pairs, with the intent of enabling source NAT
-without the need to log translations.
+Various algorithms for bijective mapping of internal addresses to
+external (address, port list) pairs, with the intent of enabling deterministic
+NAT, so eliminating the need to log individual translations.
 
-Developed independently, and prior to the publication of
+## Algorithms
+
+### Simple
+
+Ports are allocated in contiguous blocks.
+
+### Stripe
+
+Ports are allocated in non-contiguous blocks, those associated with a given
+internal address separated by a constant stripe size.
+
+### Secure
+
+Ports are allocated in non-contiguous blocks, scrambled with a simplistic
+RSA-like cryptographic algorithm.
+
+## RFC 7422
+
+These algorithms were developed independently, and prior to the publication of
 [RFC 7422](https://tools.ietf.org/html/rfc7422), though similarity is pleasantly
 uncanny. Production-worthy implementations welcomed.
 
@@ -13,7 +31,8 @@ uncanny. Production-worthy implementations welcomed.
 usage: crunchnat.py [-h] [-a {simple,stripe,secure}]
                     external/net internal/net {validate,forward,reverse} ...
 
-Forward and reverse mapping of ip:port tuples through CrunchNAT algorithm
+Deterministic forward and reverse address translation through the CrunchNAT
+algorithm
 
 positional arguments:
   external/net          external or public network
@@ -27,5 +46,5 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -a {simple,stripe,secure}, --algo {simple,stripe,secure}
-                        CrunchNAT algorithm
+                        algorithm
 ```

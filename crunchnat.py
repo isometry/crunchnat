@@ -239,11 +239,11 @@ def gen_rsa_methods(p, q, e):
 def main():
     """ Utility mode """
     parser = ArgumentParser(
-        description="Forward and reverse mapping of ip:port tuples through "
-                    "CrunchNAT algorithm")
+        description="Deterministic forward and reverse address translation "
+                    "through the CrunchNAT algorithm")
     parser.add_argument('-a', '--algo', action='store', default=DEFAULT_ALGO,
                         choices=('simple', 'stripe', 'secure'),
-                        help='CrunchNAT algorithm')
+                        help='algorithm')
 
     parser.add_argument('external', metavar='external/net', action='store',
                         help='external or public network')

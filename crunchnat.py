@@ -238,8 +238,9 @@ def gen_rsa_methods(p, q, e):
 
 def main():
     """ Utility mode """
-    parser = ArgumentParser(description="Forward and reverse mapping of ip:port"
-                                        "tuples through CrunchNAT algorithm")
+    parser = ArgumentParser(
+        description="Forward and reverse mapping of ip:port tuples through "
+                    "CrunchNAT algorithm")
     parser.add_argument('-a', '--algo', action='store', default=DEFAULT_ALGO,
                         choices=('simple', 'stripe', 'secure'),
                         help='CrunchNAT algorithm')
@@ -251,20 +252,18 @@ def main():
 
     subparsers = parser.add_subparsers(dest='subparser')
 
-    subparsers.add_parser('validate',
-                          help="validate algorithm with provided"
-                               "external/internal networks")
+    subparsers.add_parser(
+        'validate', help="validate algorithm with provided external/internal "
+                         "networks")
 
-    p_forward = subparsers.add_parser('forward',
-                                      help="map internal address to external"
-                                           "address: [port list]")
+    p_forward = subparsers.add_parser(
+        'forward', help="map internal address to external address: [port list]")
     p_forward.add_argument('address', action='store')
 
-    p_reverse = subparsers.add_parser('reverse',
-                                      help="map external address:port to"
-                                           "internal address")
-    p_reverse.add_argument('address_port', metavar='address:port',
-                           action='store')
+    p_reverse = subparsers.add_parser(
+        'reverse', help="map external address:port to internal address")
+    p_reverse.add_argument(
+        'address_port', metavar='address:port', action='store')
 
     args = parser.parse_args()
 

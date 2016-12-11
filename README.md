@@ -1,4 +1,5 @@
 # CrunchNAT
+[![Build Status](https://travis-ci.org/isometry/crunchnat.svg?branch=master)](https://travis-ci.org/isometry/crunchnat)
 
 Various algorithms for bijective mapping of internal addresses to
 external (address, port list) pairs, with the intent of enabling deterministic

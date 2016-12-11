@@ -1,6 +1,7 @@
 import unittest
 
 from ipaddress import ip_address
+
 from crunchnat import CrunchNAT
 
 class TestSimpleCrunchNAT(unittest.TestCase):
